@@ -1,0 +1,26 @@
+﻿# Python cache files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# VS Code
+.vscode/
+
+# Environment
+env/
+.venv/
+
+# yfinance cache or temp
+*.sqlite
+
+# Output artifacts
+output/
+
+# PyInstaller
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
