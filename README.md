@@ -390,7 +390,29 @@ python scripts/black_scholes.py \
 
 The `historical_closes` array in the market data JSON is populated by the agent from `get_equity_historicals()` via Robinhood MCP. The script computes RV-10/20/30/60 and labels each with neutral direction (RV > IV / RV ~ IV / RV < IV). The interpretive "cheap vs expensive" judgment belongs in the report, not in the tool output.
 
-### 3. Earnings Strategy
+### 4. GEX Calculator (Gamma Exposure)
+
+Full GEX pipeline from scratch on a new ticker — triggers Robinhood MCP data fetch, JSON writing, OI/volume patch, GEX calculation, and HTML report:
+
+```text
+"Run GEX analysis on AAPL. Use the ~30 DTE and ~60 DTE monthly expirations."
+```
+
+GEX calculation only (if JSONs already exist with OI/volume patched):
+
+```text
+"Run calculate_gex.py on AAPL 30d and show me the GEX regime."
+```
+
+HTML report only (if GEX JSONs already exist):
+
+```text
+"Generate the GEX HTML report for AAPL using the 30d and 60d JSONs."
+```
+
+All three prompts feed into the `gex-calculator` skill, which follows the **no-estimation rule**: every GEX value comes from actually-fetched gamma and open_interest — never proxy, impute, or simulate.
+
+### 5. Earnings Strategy
 
 Check if earnings coming up (use Earnings Calendar skill):
 ```python
@@ -523,8 +545,10 @@ Daily budget: 250 requests / day
 - `SKILL.md` - Complete workflow and strategies
 - `scripts/black_scholes.py` - Black-Scholes pricing engine & Greeks
 - `scripts/fetch_oi_volume.py` - yfinance fallback for OI/Volume in JSONs
+- `scripts/calculate_gex.py` - Gamma Exposure (GEX) calculator (SpotGamma formula)
+- `scripts/gex_to_html.py` - Self-contained HTML report generator from GEX JSONs
 - `scripts/sourced_data/` - Agent-prepared market data JSON files (Robinhood MCP)
-- `output/` - Final analysis reports in Markdown (`<stock>_options_<strategy>_<YYYYMMDD_HHmmss>.md`)
+- `output/` - Final analysis reports in Markdown (`<stock>_options_<strategy>_<YYYYMMDD_HHmmss>.md`) and GEX HTML files (`gex_<ticker>.html`)
 - `references/` - Methodology and strategy reference docs
 
 ### Data Flow
@@ -534,8 +558,10 @@ Daily budget: 250 requests / day
 4. Agent also fetches 90 days of OHLCV via `get_equity_historicals()` and includes close prices as `historical_closes` array in the JSON
 5. Run `scripts/fetch_oi_volume.py` to populate `open_interest` and `volume` fields via yfinance fallback (when Robinhood quotes return empty)
 6. Run with `--realized-vol` to get RV-10/20/30/60 comparisons against current IV (labels: RV > IV / RV ~ IV / RV < IV)
-7. Report includes 13 sections: Summary, Volatility Context (IV/RV, RV Regime, IV Profile), Expected Move (1SD), Probability Estimates (lognormal), IV Skew (both expirations), Greeks Comparison, BS Validation, Vol Term Structure, Time Decay, Trade Ideas (with At-Expiry Payoff tables for both expirations), Risk Metrics, Day-over-Day Context, Open Interest & Volume Analysis
-8. Alternatively, use `--ticker` + FMP API for stock price + HV
+7. Run `scripts/calculate_gex.py` on each expiry JSON to compute Net GEX, Call Wall, Put Wall, Gamma Flip, and per-strike GEX profiles (SpotGamma formula, no estimation)
+8. Run `scripts/gex_to_html.py` to generate a self-contained HTML report with regime badges, metric cards, strike tables, and GEX profile charts
+9. Report includes 13 sections: Summary, Volatility Context (IV/RV, RV Regime, IV Profile), Expected Move (1SD), Probability Estimates (lognormal), IV Skew (both expirations), Greeks Comparison, BS Validation, Vol Term Structure, Time Decay, Trade Ideas (with At-Expiry Payoff tables for both expirations), Risk Metrics, Day-over-Day Context, Open Interest & Volume Analysis, Gamma Exposure Profile
+10. Alternatively, use `--ticker` + FMP API for stock price + HV
 
 ### External Resources
 - Options Playbook: https://www.optionsplaybook.com/
@@ -561,8 +587,8 @@ Educational use. Trade at your own risk. Options involve significant risk and ar
 
 ---
 
-**Version:** 1.5
-**Last Updated:** 2026-06-23
+**Version:** 1.6
+**Last Updated:** 2026-06-25
 **Dependencies:** Python 3.8+, numpy, scipy, requests, yfinance
 **Live Data:** Robinhood MCP server (primary) | yfinance (fallback for OI/Volume) | FMP API (fallback for HV & dividends)
 **Model:** Black-Scholes (European options pricing)

@@ -17,6 +17,7 @@ Black-Scholes options pricing engine with live market data sourced via Robinhood
 ```
 scripts/
   black_scholes.py       # Pricing engine and Greeks
+  calculate_gex.py       # Gamma Exposure (GEX) calculator
   fetch_oi_volume.py     # yfinance fallback for OI/volume in JSONs
   sourced_data/           # Agent-prepared market data JSONs
   tests/                  # Pytest test suite (51 tests)
@@ -45,6 +46,17 @@ SKILL.md                  # Full analysis workflow
    C:\Python314\python.exe scripts\fetch_oi_volume.py
    ```
    This auto-discovers all JSONs in `sourced_data/`, reads `ticker`/`expiration` from each, groups by ticker for Ticker-caching efficiency, patches OI/volume, and prints IV Rank/Percentile for each underlying.
+9.5. Run GEX analysis for both expirations:
+   ```
+   C:\Python314\python.exe scripts\calculate_gex.py --market-data scripts/sourced_data/<ticker>_30d.json --output output/gex_<ticker>_30d.json
+   C:\Python314\python.exe scripts\calculate_gex.py --market-data scripts/sourced_data/<ticker>_60d.json --output output/gex_<ticker>_60d.json
+   ```
+   Computes Net GEX, Absolute GEX, Call Wall, Put Wall, Gamma Flip, and per-strike GEX profile. Only uses gamma + open_interest from fetched data — no estimation. If gamma or OI is missing, that contract is skipped and noted in data_quality.
+9.75. Generate HTML report from GEX JSONs:
+   ```
+   C:\Python314\python.exe scripts\gex_to_html.py --input output\gex_<ticker>_30d.json output\gex_<ticker>_60d.json --output output\gex_<ticker>.html
+   ```
+   Self-contained HTML page with color-coded regime badges, metric cards, and per-strike bar charts. No data fetching — pure formatting from saved JSONs.
 10. Run BS for each with `--realized-vol`:
    ```
    C:\Python314\python.exe scripts\black_scholes.py --market-data scripts/sourced_data/<ticker>_30d.json --strike <ATM> --days 30 --realized-vol
@@ -56,6 +68,7 @@ SKILL.md                  # Full analysis workflow
     - **Probability Estimates**: Lognormal-derived probabilities (`z = ln(K/S) / (σ√T)`) for key levels
     - **Vol Thesis Conflict**: Callout explaining that IV < RV favors long premium but directional bias may favor short premium — competing signals
     - **Open Interest & Volume Analysis**: Per-strike tables with OI, volume, PC Vol Ratio, PC OI Ratio for both expirations (source: yfinance fallback)
+    - **Gamma Exposure Profile**: Net GEX, Abs GEX, Call Wall, Put Wall, Gamma Flip, regime callout, and per-strike GEX breakdown from `calculate_gex.py`
     - **Skew Interpretation**: Do NOT infer call buying from IV alone — mention "may reflect call demand, reduced put demand, dealer positioning, or data artifacts"
     - **BS Validation**: For large discrepancies, say "unresolved pricing discrepancy requiring further validation" rather than "put-call parity breakdown"
     - **Trade Ideas**: Each idea annotated with probability of profit/assignment and expected move context; must include **At-Expiry Payoff** table for both expirations (rows = 4 price levels, cols = the 4 strategies) using labels: Gain/Lose/Max Gain/Max Loss/Partial Gain/Assigned/Keep Premium
@@ -74,6 +87,7 @@ SKILL.md                  # Full analysis workflow
 | `--ticker <str>` | Stock symbol (for FMP fallback) |
 | `--risk-free-rate <float>` | Risk-free rate (default: 0.053) |
 | `--dividend-yield <float>` | Dividend yield (default: 0.01) |
+| `--output <path>` | Save GEX results as JSON (used with `calculate_gex.py`) |
 | `--realized-vol` | Compute RV-10/20/30/60 from `historical_closes` in JSON (or `--closes`) |
 | `--closes <floats...>` | Chronological close prices for realized vol (space-separated) |
 
@@ -89,6 +103,16 @@ C:\Python314\python.exe scripts\black_scholes.py --market-data scripts\sourced_d
 **OI/Volume fallback (run after writing JSONs):**
 ```
 C:\Python314\python.exe scripts\fetch_oi_volume.py
+```
+
+**GEX Analysis (run after OI/volume patch):**
+```
+C:\Python314\python.exe scripts\calculate_gex.py --market-data scripts/sourced_data/file.json --output output/gex_file.json
+```
+
+**HTML Report (run after GEX analysis):**
+```
+C:\Python314\python.exe scripts\gex_to_html.py --input output\gex_file.json output\gex_file2.json --output output\gex_report.html
 ```
 
 **Tests:**
@@ -111,6 +135,7 @@ C:\Python314\python.exe -m pytest scripts\tests\ -v
 - **After any edit, run tests** to verify nothing broke
 - **Store market data JSONs in `scripts/sourced_data/`** — never in root or elsewhere
 - **Always run `scripts/fetch_oi_volume.py` after writing JSONs** — populates `volume` and `open_interest` fields via yfinance fallback
+- **Always run `scripts/calculate_gex.py` after OI/volume patch** — computes Net GEX, Call Wall, Put Wall, Gamma Flip, and per-strike GEX profile
 - **Never estimate data** — every number in a report must come from a fetched source, a computed derivation (BS model, RV, IV stats), or a BS model run. Do not fill gaps with guesses. If a strike lacks a market quote, either fetch it or note it as unavailable.
 
 ## Reference
