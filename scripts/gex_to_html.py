@@ -435,7 +435,8 @@ def build_html(data_list, titles=None):
 
         html = ""
         if len(data_list) > 1:
-            html += f'<div class="section-title" style="margin-top:16px;">{escape(label)}</div>'
+            expiry_info = f" ({expiration})" if expiration else ""
+            html += f'<div class="section-title" style="margin-top:16px;">{escape(label)}{expiry_info}</div>'
 
         html += _build_regime_banner(regime)
         html += _build_stock_price_context(metrics, stock_price)

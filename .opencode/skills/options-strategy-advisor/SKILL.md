@@ -146,10 +146,11 @@ IV: 25% (or use HV if not provided)
 ```
 
 **Multi-Expiration Analysis:**
-- For term structure comparison, fetch data for two expirations: the nearest monthly ~30 DTE and the next monthly ~60 DTE
+- For term structure comparison, fetch data for three expirations: ~0 DTE (nearest weekly), ~30 DTE (nearest monthly), and ~60 DTE (next monthly)
 - For each expiration, fetch option instruments for **±5 strikes around ATM** (e.g., if ATM=$180, fetch strikes $150 to $210 in $5 increments)
-- Create separate JSON files: `<ticker>_30d.json` and `<ticker>_60d.json`
-- Run `black_scholes.py` separately for each, then compile a combined report
+- Create separate JSON files: `<ticker>_0d.json`, `<ticker>_30d.json`, and `<ticker>_60d.json`
+- Each JSON should include a `dte` key (days to expiration); `termstructure_stats.py` uses it, or you can pass `--dte <n>`
+- Run `black_scholes.py` separately for each, then `termstructure_stats.py`, then compile a combined report
 
 **Historical Data for Realized Volatility:**
 - After fetching stock quote and before writing JSONs, fetch 90 days of daily OHLCV:
@@ -702,9 +703,9 @@ Straddle/Strangle:
    - `get_option_quotes(instrument_ids=[...])` for each set
 
 3. **Write JSON files:**
-   - `scripts/sourced_data/<ticker>_30d.json` — must include `"ticker"`, `"expiration"`, `"stock_price"`, `"historical_closes"`, and `"options"` array (strike, type, bid, ask, iv, delta, gamma, theta, vega)
-   - `scripts/sourced_data/<ticker>_60d.json` — same structure
-   - The `ticker` and `expiration` fields are required by `fetch_oi_volume.py` to auto-discover and process files
+   - `scripts/sourced_data/<ticker>_30d.json` — must include `"ticker"`, `"expiration"`, `"dte"`, `"stock_price"`, `"historical_closes"`, and `"options"` array (strike, type, bid, ask, iv, delta, gamma, theta, vega)
+   - `scripts/sourced_data/<ticker>_0d.json` and `<ticker>_60d.json` — same structure
+   - The `ticker` and `expiration` fields are required by `fetch_oi_volume.py` to auto-discover and process files; `dte` is used by `termstructure_stats.py` (or pass `--dte <n>`)
    - **Never estimate data** — every number in the report must come from a fetched source, a computed derivation (BS model, RV, IV stats), or a BS model run. If a strike lacks a market quote, either fetch it or note it as unavailable. Do not fill gaps with guesses.
 
 4. **Run yfinance fallback** (OI/Volume + IV Profile):
@@ -719,7 +720,19 @@ Straddle/Strangle:
    C:\Python314\python.exe scripts\black_scholes.py --market-data scripts/sourced_data/<ticker>_60d.json --strike <ATM> --days 66 --realized-vol
    ```
 
-6. **Compile 13-section combined report** (see template below):
+6. **Run term-structure stats for all three expirations** (expected move, lognormal probabilities, PC ratios, per-strike OI/volume, put−call IV skew):
+   ```bash
+   C:\Python314\python.exe scripts\termstructure_stats.py --market-data scripts/sourced_data/<ticker>_0d.json scripts/sourced_data/<ticker>_30d.json scripts/sourced_data/<ticker>_60d.json
+   ```
+   Optionally `--levels 120 130 140 150` to pin probability levels, or `--format markdown` for report-ready tables. Uses the `dte` key in the JSON; for JSONs lacking it, pass `--dte <n>`.
+
+7. **Build At-Expiry payoff matrices for the report's trade ideas** (straddle/bull_call/bear_put/short_put, supplied via a strategies JSON; `--probability` adds a prob-of-profit row computed from the JSON's IV/DTE):
+   ```bash
+   C:\Python314\python.exe scripts\payoff_matrix.py --market-data scripts/sourced_data/<ticker>_30d.json --strategies scripts/examples/strategies_30d.json --levels 110 125 135 160 --probability
+   ```
+   See `scripts/examples/strategies_30d.json` for the strategies schema.
+
+8. **Compile 13-section combined report** (see template below):
 
    | # | Section | Content |
    |---|---------|---------|
@@ -957,6 +970,8 @@ Expected Move = Stock Price × IV × √(DTE / 365)
 
 ### Probability Estimates (Lognormal Model)
 
+Produced by `scripts/termstructure_stats.py` (lognormal via `z = ln(K / S) / (σ√T)`):
+
 | Level | Approx Probability |
 |-------|:-----------------:|
 | Above $X | ~X% |
@@ -1015,7 +1030,7 @@ Expected Move = Stock Price × IV × √(DTE / 365)
 | $X | Call | X | X | — | — |
 | $X | Put | X | X | X.XXx | X.XXx |
 
-**Data source:** Yahoo Finance (yfinance fallback via `fetch_oi_volume.py`).
+**Data source:** `scripts/termstructure_stats.py` (Robinhood quotes, or yfinance fallback via `fetch_oi_volume.py`).
 
 **Interpretation:** [Describe notable OI concentration, volume spikes, or put/call imbalance.]
 
@@ -1085,6 +1100,8 @@ Expected Move = Stock Price × IV × √(DTE / 365)
 [Repeat for each trade idea — order defined-risk strategies first, then others]
 
 ### At-Expiry Payoff
+
+Produced by `scripts/payoff_matrix.py` from an analyst-supplied strategies JSON (`type` ∈ straddle/bull_call/bear_put/short_put with strikes + cost/credit). Run once per expiration; `--probability` appends a prob-of-profit row computed from the JSON's IV/DTE.
 
 #### ~[N] DTE
 
@@ -1381,8 +1398,11 @@ Workflow:
 **Scripts:**
 - `scripts/black_scholes.py` - Pricing engine and Greeks
 - `scripts/fetch_oi_volume.py` - yfinance OI/volume fallback + IV Rank/Percentile
-- `scripts/strategy_analyzer.py` - Strategy simulation
-- `scripts/earnings_strategy.py` - Earnings-specific analysis
+- `scripts/statistics.py` - Shared math: lognormal probs, expected move, payoff funcs, labels
+- `scripts/termstructure_stats.py` - Expected move, probabilities, PC ratios, OI/volume, IV skew
+- `scripts/payoff_matrix.py` - At-Expiry payoff tables for analyst-specified strategies
+- `scripts/calculate_gex.py` - Gamma Exposure (GEX) calculator
+- `scripts/gex_to_html.py` - GEX HTML report renderer
 
 **External Resources:**
 - Options Playbook: https://www.optionsplaybook.com/

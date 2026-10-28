@@ -1,0 +1,23 @@
+{
+    "stock_price": 132.78,
+    "ticker": "SPCX",
+    "expiration": "2026-10-16",
+    "dte": 67,
+    "historical_closes": [160.95, 192.5, 201.8, 191.82, 185.0, 154.6, 156.11, 154.54, 153.0, 153.23, 164.19, 170.86, 157.54, 162.0, 160.42, 149.47, 148.3, 152.16, 145.3, 139.14, 136.08, 135.27, 131.11, 123.99, 119.85, 123.54, 115.26, 118.24, 115.07, 113.5, 116.41, 112.55, 112.2, 108.37, 114.53, 125.33, 108.27, 114.92, 133.11],
+    "options": [
+        {"strike": 120, "type": "call", "bid": 22.85, "ask": 23.5, "iv": 0.714585, "delta": 0.69493, "gamma": 0.008603, "theta": -0.113592, "vega": 0.199622, "volume": 1770, "open_interest": 10601},
+        {"strike": 125, "type": "call", "bid": 20.25, "ask": 20.75, "iv": 0.717863, "delta": 0.646655, "gamma": 0.009086, "theta": -0.120198, "vega": 0.211793, "volume": 1100, "open_interest": 2575},
+        {"strike": 130, "type": "call", "bid": 17.95, "ask": 18.3, "iv": 0.723377, "delta": 0.598446, "gamma": 0.009382, "theta": -0.12527, "vega": 0.220375, "volume": 637, "open_interest": 10518},
+        {"strike": 135, "type": "call", "bid": 15.8, "ask": 16.1, "iv": 0.726208, "delta": 0.551063, "gamma": 0.009559, "theta": -0.128058, "vega": 0.225467, "volume": 1005, "open_interest": 3428},
+        {"strike": 140, "type": "call", "bid": 13.9, "ask": 14.15, "iv": 0.730082, "delta": 0.50524, "gamma": 0.009587, "theta": -0.129274, "vega": 0.227313, "volume": 1013, "open_interest": 3545},
+        {"strike": 145, "type": "call", "bid": 12.2, "ask": 12.4, "iv": 0.732765, "delta": 0.461178, "gamma": 0.009509, "theta": -0.128717, "vega": 0.226255, "volume": 182, "open_interest": 1739},
+        {"strike": 150, "type": "call", "bid": 10.7, "ask": 10.85, "iv": 0.736043, "delta": 0.419542, "gamma": 0.009316, "theta": -0.126894, "vega": 0.222693, "volume": 1688, "open_interest": 11875},
+        {"strike": 120, "type": "put", "bid": 9.6, "ask": 9.75, "iv": 0.726655, "delta": -0.307155, "gamma": 0.008521, "theta": -0.103445, "vega": 0.200211, "volume": 1113, "open_interest": 7884},
+        {"strike": 125, "type": "put", "bid": 11.85, "ask": 12.0, "iv": 0.7274, "delta": -0.354871, "gamma": 0.009032, "theta": -0.109223, "vega": 0.212063, "volume": 930, "open_interest": 3450},
+        {"strike": 130, "type": "put", "bid": 14.35, "ask": 14.5, "iv": 0.727847, "delta": -0.402929, "gamma": 0.009387, "theta": -0.113093, "vega": 0.22044, "volume": 1111, "open_interest": 13970},
+        {"strike": 135, "type": "put", "bid": 17.1, "ask": 17.3, "iv": 0.729486, "delta": -0.450456, "gamma": 0.009582, "theta": -0.115306, "vega": 0.225325, "volume": 862, "open_interest": 6387},
+        {"strike": 140, "type": "put", "bid": 20.15, "ask": 20.65, "iv": 0.739619, "delta": -0.495293, "gamma": 0.009521, "theta": -0.117196, "vega": 0.226862, "volume": 262, "open_interest": 2518},
+        {"strike": 145, "type": "put", "bid": 23.35, "ask": 23.9, "iv": 0.741705, "delta": -0.539142, "gamma": 0.009434, "theta": -0.11621, "vega": 0.225502, "volume": 30, "open_interest": 1078},
+        {"strike": 150, "type": "put", "bid": 26.85, "ask": 27.5, "iv": 0.749305, "delta": -0.579179, "gamma": 0.009176, "theta": -0.114862, "vega": 0.2217, "volume": 115, "open_interest": 7269}
+    ]
+}

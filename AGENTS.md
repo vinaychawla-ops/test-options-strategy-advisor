@@ -19,12 +19,19 @@ scripts/
   black_scholes.py       # Pricing engine and Greeks
   calculate_gex.py       # Gamma Exposure (GEX) calculator
   fetch_oi_volume.py     # yfinance fallback for OI/volume in JSONs
+  statistics.py          # Shared math: lognormal probs, expected move, payoff funcs, labels
+  termstructure_stats.py # Expected move, probabilities, PC ratios, OI/volume, IV skew
+  payoff_matrix.py       # At-Expiry payoff tables for analyst-specified strategies
+  examples/              # Example strategy JSONs for payoff_matrix.py
   sourced_data/           # Agent-prepared market data JSONs
-  tests/                  # Pytest test suite (51 tests)
+  tests/                  # Pytest test suite
     conftest.py
     test_black_scholes.py
     test_fmp_endpoints.py
     test_fetch_oi_volume.py
+    test_statistics.py
+    test_termstructure_stats.py
+    test_payoff_matrix.py
 output/                   # Analysis reports (Markdown)
 references/               # Methodology docs
 AGENT.md                  # This file
@@ -35,10 +42,10 @@ SKILL.md                  # Full analysis workflow
 
 1. Fetch stock quote: `get_equity_quotes(symbols=["TICKER"])`
 2. Fetch option chain: `get_option_chains(underlying_symbol="TICKER")`
-3. Pick ~30 DTE and ~60 DTE monthly expirations from `expiration_dates`
+3. Pick ~0 DTE (nearest weekly), ~30 DTE, and ~60 DTE monthly expirations from `expiration_dates`
 4. Fetch instruments for ATM±5 strikes (calls + puts) for each expiry
 5. Fetch quotes: `get_option_quotes(instrument_ids=[...])`
-6. Write JSONs to `scripts/sourced_data/<ticker>_30d.json` and `_60d.json`
+6. Write JSONs to `scripts/sourced_data/<ticker>_0d.json`, `<ticker>_30d.json`, and `<ticker>_60d.json`
 7. Fetch 90 days of OHLCV data: `get_equity_historicals(symbols=["TICKER"], interval="day", start_time="...", end_time="...")`
 8. Include `"historical_closes"` array in both market data JSONs (chronological close prices from step 7)
 9. Fetch OI/volume via yfinance fallback (run after writing JSONs, in case Robinhood quotes returned empty):
@@ -46,15 +53,16 @@ SKILL.md                  # Full analysis workflow
    C:\Python314\python.exe scripts\fetch_oi_volume.py
    ```
    This auto-discovers all JSONs in `sourced_data/`, reads `ticker`/`expiration` from each, groups by ticker for Ticker-caching efficiency, patches OI/volume, and prints IV Rank/Percentile for each underlying.
-9.5. Run GEX analysis for both expirations:
+9.5. Run GEX analysis for all three expirations:
    ```
+   C:\Python314\python.exe scripts\calculate_gex.py --market-data scripts/sourced_data/<ticker>_0d.json --output output/gex_<ticker>_0d.json
    C:\Python314\python.exe scripts\calculate_gex.py --market-data scripts/sourced_data/<ticker>_30d.json --output output/gex_<ticker>_30d.json
    C:\Python314\python.exe scripts\calculate_gex.py --market-data scripts/sourced_data/<ticker>_60d.json --output output/gex_<ticker>_60d.json
    ```
    Computes Net GEX, Absolute GEX, Call Wall, Put Wall, Gamma Flip, and per-strike GEX profile. Only uses gamma + open_interest from fetched data — no estimation. If gamma or OI is missing, that contract is skipped and noted in data_quality.
-9.75. Generate HTML report from GEX JSONs:
+9.75. Generate HTML report from all GEX JSONs:
    ```
-   C:\Python314\python.exe scripts\gex_to_html.py --input output\gex_<ticker>_30d.json output\gex_<ticker>_60d.json --output output\gex_<ticker>.html
+   C:\Python314\python.exe scripts\gex_to_html.py --input output\gex_<ticker>_0d.json output\gex_<ticker>_30d.json output\gex_<ticker>_60d.json --label "0 DTE" "30 DTE" "60 DTE" --output output\gex_<ticker>.html
    ```
    Self-contained HTML page with color-coded regime badges, metric cards, and per-strike bar charts. No data fetching — pure formatting from saved JSONs.
 10. Run BS for each with `--realized-vol`:
@@ -62,16 +70,26 @@ SKILL.md                  # Full analysis workflow
    C:\Python314\python.exe scripts\black_scholes.py --market-data scripts/sourced_data/<ticker>_30d.json --strike <ATM> --days 30 --realized-vol
    C:\Python314\python.exe scripts\black_scholes.py --market-data scripts/sourced_data/<ticker>_60d.json --strike <ATM> --days 66 --realized-vol
    ```
+10.5. Run term-structure stats for all three expirations:
+   ```
+   C:\Python314\python.exe scripts\termstructure_stats.py --market-data scripts/sourced_data/<ticker>_0d.json scripts/sourced_data/<ticker>_30d.json scripts/sourced_data/<ticker>_60d.json
+   ```
+   Computes Expected Move (1SD), lognormal probabilities, PC Vol/OI ratios, per-strike OI/volume, and put−call IV skew tables. Optionally `--levels 120 130 140 150` to pin probability levels, or `--format markdown` for report-ready tables. Uses the `dte` key in the JSON; for JSONs lacking it, pass `--dte <n>`.
+10.75. Build At-Expiry payoff matrices for the report's trade ideas:
+   ```
+   C:\Python314\python.exe scripts\payoff_matrix.py --market-data scripts/sourced_data/<ticker>_30d.json --strategies scripts/examples/strategies_30d.json --levels 110 125 135 160 --probability
+   ```
+   Strategies are analyst-specified via a JSON file (`type` ∈ straddle/bull_call/bear_put/short_put with strikes + cost/credit). `--probability` adds a prob-of-profit row computed from the JSON's IV/DTE. See `scripts/examples/strategies_30d.json` for the schema.
 11. Compile combined report to `output/<ticker>_options_termstructure_<YYYYMMDD_HHmmss>.md`. Report must include:
     - **Volatility Context**: IV vs RV comparison, RV Regime Analysis (10/20/30/60d), IV Profile (Rank/Percentile)
-    - **Expected Move (1SD)**: stock × IV × √(DTE/365) — table for both expirations
+    - **Expected Move (1SD)**: stock × IV × √(DTE/365) — table for all expirations
     - **Probability Estimates**: Lognormal-derived probabilities (`z = ln(K/S) / (σ√T)`) for key levels
     - **Vol Thesis Conflict**: Callout explaining that IV < RV favors long premium but directional bias may favor short premium — competing signals
-    - **Open Interest & Volume Analysis**: Per-strike tables with OI, volume, PC Vol Ratio, PC OI Ratio for both expirations (source: yfinance fallback)
+    - **Open Interest & Volume Analysis**: Per-strike tables with OI, volume, PC Vol Ratio, PC OI Ratio for all expirations (from `termstructure_stats.py`; source: Robinhood quotes or yfinance fallback)
     - **Gamma Exposure Profile**: Net GEX, Abs GEX, Call Wall, Put Wall, Gamma Flip, regime callout, and per-strike GEX breakdown from `calculate_gex.py`
     - **Skew Interpretation**: Do NOT infer call buying from IV alone — mention "may reflect call demand, reduced put demand, dealer positioning, or data artifacts"
     - **BS Validation**: For large discrepancies, say "unresolved pricing discrepancy requiring further validation" rather than "put-call parity breakdown"
-    - **Trade Ideas**: Each idea annotated with probability of profit/assignment and expected move context; must include **At-Expiry Payoff** table for both expirations (rows = 4 price levels, cols = the 4 strategies) using labels: Gain/Lose/Max Gain/Max Loss/Partial Gain/Assigned/Keep Premium
+    - **Trade Ideas**: Each idea annotated with probability of profit/assignment and expected move context; must include **At-Expiry Payoff** table for all expirations (rows = 4 price levels, cols = the 4 strategies) using labels: Gain/Lose/Max Gain/Max Loss/Partial Gain/Assigned/Keep Premium
 
 ## Key CLI Flags
 
@@ -113,6 +131,16 @@ C:\Python314\python.exe scripts\calculate_gex.py --market-data scripts/sourced_d
 **HTML Report (run after GEX analysis):**
 ```
 C:\Python314\python.exe scripts\gex_to_html.py --input output\gex_file.json output\gex_file2.json --output output\gex_report.html
+```
+
+**Term-structure stats (expected move, probabilities, PC ratios, OI/volume, skew):**
+```
+C:\Python314\python.exe scripts\termstructure_stats.py --market-data scripts/sourced_data/file_0d.json scripts/sourced_data/file_30d.json --format markdown
+```
+
+**At-Expiry payoff matrix (run for the report's trade ideas):**
+```
+C:\Python314\python.exe scripts\payoff_matrix.py --market-data scripts/sourced_data/file_30d.json --strategies scripts/examples/strategies_30d.json --levels 110 125 135 160 --probability
 ```
 
 **Tests:**
